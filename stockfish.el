@@ -131,20 +131,27 @@
     (when (stringp move) ;; sometimes move and pv fields are null...
       (with-current-buffer stockfish-analysis-buffer
 	(save-excursion
-	  (goto-char (point-min))
-	  (forward-line (+ line 4))
-	  (delete-region (line-beginning-position) (line-end-position))
-	  (insert (format "\t%s\t%s%s\t(%s, %s)"
-			  ;; todo: guard against errors... also wrong argument type errors...
-			  (chess-ply-to-algebraic
-			   (chess-algebraic-to-ply
-			    (chess-fen-to-pos stockfish-fen)
-			    (alist-get 'move eval))
-			   :fan)
-			  (if (eq 'mate (alist-get 'eval-type eval)) "#" "")
-			  (alist-get 'eval eval)
-			  (alist-get 'depth eval)
-			  (alist-get 'seldepth eval))))))))
+	  (condition-case nil
+	      (let ((move-text
+		     (chess-ply-to-algebraic
+		      (chess-algebraic-to-ply
+		       (chess-fen-to-pos stockfish-fen)
+		       (alist-get 'move eval))
+		      :fan)))
+		(goto-char (point-min))
+		(forward-line (+ line 4))
+		(delete-region (line-beginning-position) (line-end-position))
+		(insert (format "\t%s\t%s%s\t(%s, %s)"
+				move-text
+				(if (eq 'mate (alist-get 'eval-type eval)) "#" "")
+				(alist-get 'eval eval)
+				(alist-get 'depth eval)
+				(alist-get 'seldepth eval))))
+	    ((error) ;; still a dodgy way to handle errors. sometimes
+		     ;; changing the position results in problems
+		     ;; because like a dummy i am using global
+		     ;; variables
+	     nil)))))))
 
 (defun stockfish-stop ()
   (stockfish-command "stop"))
@@ -162,7 +169,7 @@
 
 (defun stockfish-gogo ()
   (stockfish-uci)
-  (stockfish-set-position "1r6/3k1pp1/4p2p/p2nPP1P/1p2K1P1/1P2B3/P7/2R5 b - - 0 42")
-  (stockfish-run 20))
+  (stockfish-set-position "8/5k2/2R2p1p/pr5P/1p2K1P1/1P6/P7/8 w - - 2 48")
+  (stockfish-run 120))
 
 (stockfish-gogo)
