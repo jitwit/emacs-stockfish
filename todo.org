@@ -1,0 +1,4 @@
+
++ imagemagick or something to draw boards
++ forms/widgets?
++ prettier printing

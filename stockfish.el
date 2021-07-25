@@ -155,11 +155,12 @@
   (with-current-buffer (get-buffer "*stockfish*")
     (goto-char (point-max)))
   (stockfish-command (format "go movetime %s" (* 1000 seconds)))
-  (display-buffer stockfish-analysis-buffer))
+  (display-buffer stockfish-analysis-buffer)
+  'stockfish)
 
 (defun stockfish-gogo ()
   (stockfish-uci)
-  (stockfish-set-position "8/ppp1b2R/4k3/4P1p1/PP4P1/2r3B1/5P2/6K1 w - - 0 31")
-  (stockfish-run 5))
+  (stockfish-set-position "1r6/2nkbpp1/1n2p2p/p2p3P/1p1PPPP1/1P1KN3/P2B4/2R1N3 b - - 0 36")
+  (stockfish-run 20))
 
 (stockfish-gogo)
