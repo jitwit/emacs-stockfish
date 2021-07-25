@@ -2,9 +2,10 @@
 (require 'svg)
 
 (defvar svg nil)
-(defvar board-pixels 400)
+(defvar board-pixels 512)
 (defvar stockfish-piece-image-directory
   "images/pieces/fresca/")
+(defvar stockfish-board-perspective 1)
 
 (defun stockfish-image-of-piece (piece)
   (let ((file
@@ -29,8 +30,8 @@
 
 (defun embed-piece (board position index)
   (let ((file (stockfish-image-of-piece (aref position index)))
-	(i (/ index 8))
-	(j (mod index 8)))
+	(i (mod index 8))
+	(j (/ index 8)))
     (when file
       (svg-embed board
 		 file
@@ -38,19 +39,20 @@
 		 nil
 		 :width (/ board-pixels 8)
 		 :height (/ board-pixels 8)
-		 :x (* j (/ board-pixels 8))
-		 :y (* i (/ board-pixels 8))))))
+		 :x (* i (/ board-pixels 8))
+		 :y (* j (/ board-pixels 8))))))
 
 (defun stockfish-display-position (position)
   (setq svg (svg-create board-pixels board-pixels))
   (embed-background svg)
-  (dotimes (i 7)
-    (dotimes (j 7)
+  (dotimes (i 8)
+    (dotimes (j 8)
       (embed-piece svg position (+ j (* 8 i)))))
   (save-excursion
     (goto-char (point-max))
     (insert-image
      (svg-image svg))))
 
-(stockfish-display-position
- (chess-fen-to-pos stockfish-fen))
+;; (setq board-pixels 512)
+;; (stockfish-display-position
+;;  (chess-fen-to-pos stockfish-fen))

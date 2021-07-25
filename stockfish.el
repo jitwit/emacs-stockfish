@@ -105,11 +105,13 @@
     (save-excursion
       (delete-region (point-min) (point-max))
       (insert (format "FEN:   %s\n" stockfish-fen))
-      (loop repeat (+ 10 stockfish-multipv) do
-	    (newline))
+      (dotimes (+ 10 stockfish-multipv)
+	(newline))
       (goto-char (point-min))
       (forward-line 4)
-      (insert "\tmove\teval\tdepth"))))
+      (insert "\tmove\teval\tdepth")
+      (stockfish-display-position
+       (chess-fen-to-pos stockfish-fen)))))
 
 (defun stockfish-draw-nodes (eval)
   (with-current-buffer stockfish-analysis-buffer
@@ -160,7 +162,7 @@
 
 (defun stockfish-gogo ()
   (stockfish-uci)
-  (stockfish-set-position "1r6/2nkbpp1/1n2p2p/p2p3P/1p1PPPP1/1P1KN3/P2B4/2R1N3 b - - 0 36")
+  (stockfish-set-position "1r6/3k1pp1/4p2p/p2nPP1P/1p2K1P1/1P2B3/P7/2R5 b - - 0 42")
   (stockfish-run 20))
 
 (stockfish-gogo)
