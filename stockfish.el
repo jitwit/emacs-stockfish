@@ -124,23 +124,25 @@
 
 (defun stockfish-draw-eval (eval)
   (stockfish-draw-nodes eval)
-  (let ((line (alist-get 'multipv eval)))
-    (with-current-buffer stockfish-analysis-buffer
-      (save-excursion
-      (goto-char (point-min))
-      (forward-line (+ line 4))
-      (delete-region (line-beginning-position) (line-end-position))
-      (insert (format "\t%s\t%s%s\t(%s, %s)"
-		      ;; todo: guard against errors... also wrong argument type errors...
-		      (chess-ply-to-algebraic
-		       (chess-algebraic-to-ply
-			(chess-fen-to-pos stockfish-fen)
-			(alist-get 'move eval))
-		       :fan)
-		      (if (eq 'mate (alist-get 'eval-type eval)) "#" "")
-		      (alist-get 'eval eval)
-		      (alist-get 'depth eval)
-		      (alist-get 'seldepth eval)))))))
+  (let* ((line (alist-get 'multipv eval))
+	 (move (alist-get 'move eval)))
+    (when (stringp move) ;; sometimes move and pv fields are null...
+      (with-current-buffer stockfish-analysis-buffer
+	(save-excursion
+	  (goto-char (point-min))
+	  (forward-line (+ line 4))
+	  (delete-region (line-beginning-position) (line-end-position))
+	  (insert (format "\t%s\t%s%s\t(%s, %s)"
+			  ;; todo: guard against errors... also wrong argument type errors...
+			  (chess-ply-to-algebraic
+			   (chess-algebraic-to-ply
+			    (chess-fen-to-pos stockfish-fen)
+			    (alist-get 'move eval))
+			   :fan)
+			  (if (eq 'mate (alist-get 'eval-type eval)) "#" "")
+			  (alist-get 'eval eval)
+			  (alist-get 'depth eval)
+			  (alist-get 'seldepth eval))))))))
 
 (defun stockfish-stop ()
   (stockfish-command "stop"))
