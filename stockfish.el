@@ -13,7 +13,6 @@
       (save-excursion
 	(goto-char (point-max))
 	(insert string))
-      ;; process each line, updating ui once there is one
       (while (> (point-max) (+ 1 (point)))
 	(let ((eval (stockfish-process-line (thing-at-point 'line))))
 	  (when eval
@@ -47,6 +46,7 @@
 
 (defun stockfish-set-position (&optional fen)
   (interactive "sFEN: ")
+  ;; race condition because filter may still be processing output?
   (stockfish-command "stop")
   (stockfish-command (format "position fen %s" fen))
   (setq stockfish-fen fen))
@@ -102,52 +102,62 @@
 
 (defun stockfish-draw-new-analysis-buffer ()
   (with-current-buffer stockfish-analysis-buffer
-    (delete-region (point-min) (point-max))
     (save-excursion
+      (delete-region (point-min) (point-max))
       (insert (format "FEN:   %s\n" stockfish-fen))
       (loop repeat (+ 10 stockfish-multipv) do
 	    (newline))
-      (goto-line 5)
+      (goto-char (point-min))
+      (forward-line 4)
       (insert "\tmove\teval\tdepth"))))
 
 (defun stockfish-draw-nodes (eval)
   (with-current-buffer stockfish-analysis-buffer
-      (save-excursion
-	(goto-line 3)
-	(delete-region (line-beginning-position) (line-end-position))
-	(insert (format "(nodes, nps, time): (%s, %s, %s)"
-			(alist-get 'nodes eval)
-			(alist-get 'nps eval)
-			(alist-get 'time eval))))))
+    (save-excursion
+      (goto-char (point-min))
+      (forward-line 2)
+      (delete-region (line-beginning-position) (line-end-position))
+      (insert (format "(nodes, nps, time): (%s, %s, %s)"
+		      (alist-get 'nodes eval)
+		      (alist-get 'nps eval)
+		      (alist-get 'time eval))))))
 
 (defun stockfish-draw-eval (eval)
   (stockfish-draw-nodes eval)
   (let ((line (alist-get 'multipv eval)))
     (with-current-buffer stockfish-analysis-buffer
       (save-excursion
-	(goto-line (+ line 5))
-	(delete-region (line-beginning-position) (line-end-position))
-	(insert (format "\t%s\t%s%s\t(%s, %s)"
-			(chess-ply-to-algebraic
-			 (chess-algebraic-to-ply
-			  (chess-fen-to-pos stockfish-fen)
-			  (alist-get 'move eval))
-			 :san)
-			(if (eq 'mate (alist-get 'eval-type eval)) "#" "")
-			(alist-get 'eval eval)
-			(alist-get 'depth eval)
-			(alist-get 'seldepth eval)))))))
+      (goto-char (point-min))
+      (forward-line (+ line 4))
+      (delete-region (line-beginning-position) (line-end-position))
+      (insert (format "\t%s\t%s%s\t(%s, %s)"
+		      ;; todo: guard against errors... also wrong argument type errors...
+		      (chess-ply-to-algebraic
+		       (chess-algebraic-to-ply
+			(chess-fen-to-pos stockfish-fen)
+			(alist-get 'move eval))
+		       :fan)
+		      (if (eq 'mate (alist-get 'eval-type eval)) "#" "")
+		      (alist-get 'eval eval)
+		      (alist-get 'depth eval)
+		      (alist-get 'seldepth eval)))))))
+
+(defun stockfish-stop ()
+  (stockfish-command "stop"))
 
 (defun stockfish-run (seconds)
   (interactive)
   (stockfish-initialize)
   (stockfish-draw-new-analysis-buffer)
-  (stockfish-command "stop")
+  (stockfish-stop)
   (with-current-buffer (get-buffer "*stockfish*")
     (goto-char (point-max)))
   (stockfish-command (format "go movetime %s" (* 1000 seconds)))
   (display-buffer stockfish-analysis-buffer))
 
-(stockfish-uci)
-(stockfish-set-position "3r2k1/5p2/2B4p/5Qpq/P3p1PP/4P3/3n1PK1/5R2 b - - 0 42")
-(stockfish-run 30)
+(defun stockfish-gogo ()
+  (stockfish-uci)
+  (stockfish-set-position "8/ppp1b2R/4k3/4P1p1/PP4P1/2r3B1/5P2/6K1 w - - 0 31")
+  (stockfish-run 5))
+
+(stockfish-gogo)
