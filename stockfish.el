@@ -14,7 +14,8 @@
 	(goto-char (point-max))
 	(insert string))
       (while (> (point-max) (+ 1 (point)))
-	(let ((eval (stockfish-process-line (thing-at-point 'line))))
+	(let* ((line (thing-at-point 'line))
+	       (eval (stockfish-process-line line)))
 	  (when eval
 	    (stockfish-draw-eval eval)))
 	(forward-line)))))
@@ -123,20 +124,21 @@
 ;; after move 42... Qd5
 ;; getting erroneous moves in some positions including promotions...
 (defun stockfish-pv-fans (position pv)
-  (condition-case err
-      (let ((p position)
-	    (fans '())
-	    (pv pv))
-	(while (< 0 (length pv))
-	  (let ((dp (chess-algebraic-to-ply p (car pv))))
-	    (push (chess-ply-to-algebraic dp :fan) fans)
-	    (setq p (chess-ply-next-pos dp))
-	    (setq pv (cdr pv))))
-	(reverse fans))
-    ((error)
-     (message "s-p-v: %s %s %s" err pv position)
-     (stockfish-stop)
-     pv)))
+  ;; sometimes lines incomplete...
+  (let ((p position)
+	(fans '())
+	(pv pv))
+    (condition-case err
+	(progn
+	  (while pv
+	    (let ((dp (chess-algebraic-to-ply p (car pv))))
+	      (setq fans (cons (chess-ply-to-algebraic dp :fan) fans))
+	      (setq p (chess-ply-next-pos dp))
+	      (setq pv (cdr pv))))
+	  (reverse fans))
+      ((error)
+       (message "s-p-v: %s %s" err pv)
+       (reverse fans)))))
 
 (defun stockfish-draw-eval (eval)
   (stockfish-draw-nodes eval)
@@ -169,6 +171,7 @@
 	             ;; because like a dummy i am using global
 	             ;; variables
 	     (message "s-d-e: %s" err)
+	     ;; (backtrace)
 	     ;; (stockfish-stop)
 	     nil)))))))
 
