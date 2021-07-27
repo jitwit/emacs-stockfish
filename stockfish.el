@@ -30,7 +30,8 @@
 	  (make-process :name "stockfish"
 			:buffer "*stockfish*"
 			:command `(,(executable-find "stockfish"))
-			:filter 'stockfish-filter))))
+			:filter 'stockfish-filter))
+    (stockfish-uci)))
 
 (defun stockfish-command (command-text)
   (stockfish-initialize)
@@ -63,13 +64,13 @@
 (defun stockfish-read-nth (n tokens)
   (read (or (nth n tokens) "err")))
 
-;; tokens 
+;; tokens todo: look for upperbound/lowerbound for score and make it
+;; possible to read optionally...
 (defun stockfish-parse-evaluation (tokens)
   (let* ((depth (stockfish-read-nth 1 (member "depth" tokens)))
 	 (seldepth (stockfish-read-nth 1 (member "seldepth" tokens)))
 	 (multipv (stockfish-read-nth 1 (member "multipv" tokens)))
 	 (eval-type (stockfish-read-nth 1 (member "score" tokens)))
-	 ;; todo look for upperbound/lowerbound
 	 (eval (stockfish-read-nth 2 (member "score" tokens)))
 	 (nodes (stockfish-read-nth 1 (member "nodes" tokens)))
 	 (nps (stockfish-read-nth 1 (member "nps" tokens)))
@@ -102,7 +103,7 @@
 	(newline))
       (goto-char (point-min))
       (forward-line 4)
-      (insert "\tmove\teval\tdepth")
+      (insert "\tmove\teval\tdepth\tpv")
       (stockfish-display-position
        (chess-fen-to-pos stockfish-fen)))))
 
@@ -117,6 +118,16 @@
 		      (alist-get 'nps eval)
 		      (alist-get 'time eval))))))
 
+(defun stockfish-pv-fans (position pv)
+  (let ((p position)
+	(fans '()))
+    (while pv
+      (let ((dp (chess-algebraic-to-ply p (car pv))))
+	(setq fans (cons (chess-ply-to-algebraic dp :fan) fans))
+	(setq p (chess-ply-next-pos dp))
+	(setq pv (cdr pv))))
+    (reverse fans)))
+
 (defun stockfish-draw-eval (eval)
   (stockfish-draw-nodes eval)
   (let* ((line (alist-get 'multipv eval))
@@ -125,21 +136,18 @@
       (with-current-buffer stockfish-analysis-buffer
 	(save-excursion
 	  (condition-case nil
-	      (let ((move-text
-		     (chess-ply-to-algebraic
-		      (chess-algebraic-to-ply
-		       (chess-fen-to-pos stockfish-fen)
-		       (alist-get 'move eval))
-		      :fan)))
+	      (let ((fans (stockfish-pv-fans (chess-fen-to-pos stockfish-fen)
+					     (alist-get 'pv eval))))
 		(goto-char (point-min))
 		(forward-line (+ line 4))
 		(delete-region (line-beginning-position) (line-end-position))
-		(insert (format "\t%s\t%s%d\t%2d/%2d"
-				move-text
+		(insert (format "\t%s\t%s%d\t%2d/%2d\t%s"
+				(car fans)
 				(if (eq 'mate (alist-get 'eval-type eval)) "#" "")
 				(alist-get 'eval eval)
 				(alist-get 'depth eval)
-				(alist-get 'seldepth eval))))
+				(alist-get 'seldepth eval)
+				(string-join (seq-subseq fans 0 9) " "))))
 	    ((error) ;; still a dodgy way to handle errors. sometimes
 		     ;; changing the position results in problems
 		     ;; because like a dummy i am using global
