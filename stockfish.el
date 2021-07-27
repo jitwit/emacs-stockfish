@@ -3,7 +3,7 @@
 (defvar stockfish-process nil)
 (defvar stockfish-evaluation-table (make-hash-table))
 (defvar stockfish-analysis-buffer (get-buffer-create "*stockfish-analysis*"))
-(defvar stockfish-fen nil)
+(defvar stockfish-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 (defvar stockfish-multipv 5)
 
 (defun stockfish-filter (process string)
@@ -49,7 +49,8 @@
   ;; race condition because filter may still be processing output?
   (stockfish-command "stop")
   (stockfish-command (format "position fen %s" fen))
-  (setq stockfish-fen fen))
+  (setq stockfish-fen fen)
+  (stockfish-draw-new-analysis-buffer))
 
 (defun stockfish-lookup-evaluation (fen)
   (gethash fen stockfish-evaluation-table '()))
@@ -64,24 +65,16 @@
 
 ;; tokens 
 (defun stockfish-parse-evaluation (tokens)
-  (let* ((in (current-buffer))
-	 (tokens (member "depth" tokens))
-	 (depth (stockfish-read-nth 1 tokens))
-	 (tokens (member "seldepth" tokens))
-	 (seldepth (stockfish-read-nth 1 tokens))
-	 (tokens (member "multipv" tokens))
-	 (multipv (stockfish-read-nth 1 tokens))
-	 (tokens (member "score" tokens))
-	 (eval-type (stockfish-read-nth 1 tokens))
-	 (eval (stockfish-read-nth 2 tokens)) ;; todo look for upperbound/lowerbound
-	 (tokens (member "nodes" tokens))
-	 (nodes (stockfish-read-nth 1 tokens))
-	 (tokens (member "nps" tokens))
-	 (nps (stockfish-read-nth 1 tokens))
-	 (tokens (member "time" tokens))
-	 (time (stockfish-read-nth 1 tokens))
-	 (tokens (member "pv" tokens))
-	 (pv (cdr tokens))
+  (let* ((depth (stockfish-read-nth 1 (member "depth" tokens)))
+	 (seldepth (stockfish-read-nth 1 (member "seldepth" tokens)))
+	 (multipv (stockfish-read-nth 1 (member "multipv" tokens)))
+	 (eval-type (stockfish-read-nth 1 (member "score" tokens)))
+	 ;; todo look for upperbound/lowerbound
+	 (eval (stockfish-read-nth 2 (member "score" tokens)))
+	 (nodes (stockfish-read-nth 1 (member "nodes" tokens)))
+	 (nps (stockfish-read-nth 1 (member "nps" tokens)))
+	 (time (stockfish-read-nth 1 (member "time" tokens)))
+	 (pv (cdr (member "pv" tokens)))
 	 (move (car pv)))
     `((move . ,move)
       (depth . ,depth)
@@ -141,7 +134,7 @@
 		(goto-char (point-min))
 		(forward-line (+ line 4))
 		(delete-region (line-beginning-position) (line-end-position))
-		(insert (format "\t%s\t%s%s\t(%s, %s)"
+		(insert (format "\t%s\t%s%d\t%2d/%2d"
 				move-text
 				(if (eq 'mate (alist-get 'eval-type eval)) "#" "")
 				(alist-get 'eval eval)
@@ -154,22 +147,42 @@
 	     nil)))))))
 
 (defun stockfish-stop ()
+  (interactive)
   (stockfish-command "stop"))
 
 (defun stockfish-run (seconds)
   (interactive)
   (stockfish-initialize)
-  (stockfish-draw-new-analysis-buffer)
   (stockfish-stop)
+  (stockfish-draw-new-analysis-buffer)
   (with-current-buffer (get-buffer "*stockfish*")
     (goto-char (point-max)))
   (stockfish-command (format "go movetime %s" (* 1000 seconds)))
   (display-buffer stockfish-analysis-buffer)
   'stockfish)
 
+(defun stockfish-go ()
+  (interactive)
+  (stockfish-initialize)
+  (stockfish-stop)
+  (stockfish-draw-new-analysis-buffer)
+  (with-current-buffer (get-buffer "*stockfish*")
+    (goto-char (point-max)))
+  (stockfish-command "go")
+  (display-buffer stockfish-analysis-buffer)
+  'stockfish)
+
+(defun stockfish-yank-position ()
+  (interactive)
+  (let ((fen (current-kill 0)))
+    (if (not (chess-fen-to-pos fen))
+	(message "chess: current kill is not a valid FEN")
+      (stockfish-set-position fen)
+      (stockfish-go)
+      (message "chess: current FEN updated"))))
+
 (defun stockfish-gogo ()
   (stockfish-uci)
-  (stockfish-set-position "8/5k2/2R2p1p/pr5P/1p2K1P1/1P6/P7/8 w - - 2 48")
   (stockfish-run 120))
 
-(stockfish-gogo)
+(global-set-key (kbd "C-c f e n") 'stockfish-yank-position)
