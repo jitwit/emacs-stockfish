@@ -119,14 +119,18 @@
 		      (alist-get 'time eval))))))
 
 (defun stockfish-pv-fans (position pv)
-  (let ((p position)
-	(fans '()))
-    (while pv
-      (let ((dp (chess-algebraic-to-ply p (car pv))))
-	(setq fans (cons (chess-ply-to-algebraic dp :fan) fans))
-	(setq p (chess-ply-next-pos dp))
-	(setq pv (cdr pv))))
-    (reverse fans)))
+  (condition-case err
+      (let ((p position)
+	    (fans '()))
+	(while pv
+	  (let ((dp (chess-algebraic-to-ply p (car pv))))
+	    (setq fans (cons (chess-ply-to-algebraic dp :fan) fans))
+	    (setq p (chess-ply-next-pos dp))
+	    (setq pv (cdr pv))))
+	(reverse fans))
+    ((error)
+     (message "%s" err)
+     pv)))
 
 (defun stockfish-draw-eval (eval)
   (stockfish-draw-nodes eval)
@@ -135,7 +139,7 @@
     (when (stringp move) ;; sometimes move and pv fields are null...
       (with-current-buffer stockfish-analysis-buffer
 	(save-excursion
-	  (condition-case nil
+	  (condition-case err
 	      (let ((fans (stockfish-pv-fans (chess-fen-to-pos stockfish-fen)
 					     (alist-get 'pv eval))))
 		(goto-char (point-min))
@@ -147,11 +151,15 @@
 				(alist-get 'eval eval)
 				(alist-get 'depth eval)
 				(alist-get 'seldepth eval)
-				(string-join (seq-subseq fans 0 9) " "))))
+				(string-join (seq-subseq fans
+							 0
+							 (min 9 (length fans)))
+					     " "))))
 	    ((error) ;; still a dodgy way to handle errors. sometimes
 		     ;; changing the position results in problems
-		     ;; because like a dummy i am using global
-		     ;; variables
+	             ;; because like a dummy i am using global
+	             ;; variables
+	     (message "%s" err)
 	     nil)))))))
 
 (defun stockfish-stop ()
