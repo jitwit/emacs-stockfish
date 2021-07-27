@@ -118,25 +118,33 @@
 		      (alist-get 'nps eval)
 		      (alist-get 'time eval))))))
 
+;; strange issue with
+;; https://lichess.org/broadcast/fide-world-cup/round-5-tiebreaks/JosFFOCh/SgCKCepm
+;; after move 42... Qd5
+;; getting erroneous moves in some positions including promotions...
 (defun stockfish-pv-fans (position pv)
   (condition-case err
       (let ((p position)
-	    (fans '()))
-	(while pv
+	    (fans '())
+	    (pv pv))
+	(while (< 0 (length pv))
 	  (let ((dp (chess-algebraic-to-ply p (car pv))))
-	    (setq fans (cons (chess-ply-to-algebraic dp :fan) fans))
+	    (push (chess-ply-to-algebraic dp :fan) fans)
 	    (setq p (chess-ply-next-pos dp))
 	    (setq pv (cdr pv))))
 	(reverse fans))
     ((error)
-     (message "%s" err)
+     (message "s-p-v: %s %s %s" err pv position)
+     (stockfish-stop)
      pv)))
 
 (defun stockfish-draw-eval (eval)
   (stockfish-draw-nodes eval)
   (let* ((line (alist-get 'multipv eval))
 	 (move (alist-get 'move eval)))
-    (when (stringp move) ;; sometimes move and pv fields are null...
+    (when (and (stringp move)
+	       (< 0 (length (alist-get 'pv eval))))
+      ;; sometimes move and pv fields are null...
       (with-current-buffer stockfish-analysis-buffer
 	(save-excursion
 	  (condition-case err
@@ -147,6 +155,7 @@
 		(delete-region (line-beginning-position) (line-end-position))
 		(insert (format "\t%s\t%s%d\t%2d/%2d\t%s"
 				(car fans)
+					; (and fans (car fans))
 				(if (eq 'mate (alist-get 'eval-type eval)) "#" "")
 				(alist-get 'eval eval)
 				(alist-get 'depth eval)
@@ -159,7 +168,8 @@
 		     ;; changing the position results in problems
 	             ;; because like a dummy i am using global
 	             ;; variables
-	     (message "%s" err)
+	     (message "s-d-e: %s" err)
+	     ;; (stockfish-stop)
 	     nil)))))))
 
 (defun stockfish-stop ()
