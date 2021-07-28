@@ -121,13 +121,15 @@
 
 ;; strange issue with
 ;; https://lichess.org/broadcast/fide-world-cup/round-5-tiebreaks/JosFFOCh/SgCKCepm
-;; after move 42... Qd5
-;; getting erroneous moves in some positions including promotions...
-(defun stockfish-pv-fans (position pv)
+;; after move 42... Qd5 getting erroneous moves in some positions
+;; including promotions...  ok! so error is actually with emacs-chess,
+;; it doesn't seem to handle stockfish notation eg: h8h8q
+;; https://github.com/jwiegley/emacs-chess/pull/17
+(defun stockfish-pv-fans (position pv0)
   ;; sometimes lines incomplete...
   (let ((p position)
 	(fans '())
-	(pv pv))
+	(pv pv0))
     (condition-case err
 	(progn
 	  (while pv
@@ -137,8 +139,9 @@
 	      (setq pv (cdr pv))))
 	  (reverse fans))
       ((error)
-       (message "s-p-v: %s %s" err pv)
-       (reverse fans)))))
+       (message "s-p-v:\n%s\n%s\n%s\n%s\n" err pv pv0 (reverse fans))
+       (append (reverse fans)
+	       (seq-subseq pv0 (- (length fans) 1)))))))
 
 (defun stockfish-draw-eval (eval)
   (stockfish-draw-nodes eval)
@@ -215,3 +218,5 @@
   (stockfish-run 120))
 
 (global-set-key (kbd "C-c f e n") 'stockfish-yank-position)
+(global-set-key (kbd "C-c s f s") 'stockfish-stop)
+(global-set-key (kbd "C-c s f g") 'stockfish-go)
