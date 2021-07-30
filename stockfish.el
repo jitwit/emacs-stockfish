@@ -31,7 +31,8 @@
 	  (make-process :name "stockfish"
 			:buffer "*stockfish*"
 			:command `(,(executable-find "stockfish"))
-			:filter 'stockfish-filter))
+			:filter 'stockfish-filter
+			:connection-type 'pipe))
     (stockfish-uci)))
 
 (defun stockfish-command (command-text)
@@ -114,10 +115,10 @@
       (goto-char (point-min))
       (forward-line 2)
       (delete-region (line-beginning-position) (line-end-position))
-      (insert (format "(nodes, nps, time): (%s, %s, %s)"
-		      (alist-get 'nodes eval)
-		      (alist-get 'nps eval)
-		      (alist-get 'time eval))))))
+      (insert (format "(knodes, knps, s): (%.1f, %.1f, %.2f)"
+		      (/ (or (alist-get 'nodes eval) 0.0) 1000.0)
+		      (/ (or (alist-get 'nps eval) 0.0) 1000.0)
+		      (/ (or (alist-get 'time eval) 0.0) 1000.0))))))
 
 ;; strange issue with
 ;; https://lichess.org/broadcast/fide-world-cup/round-5-tiebreaks/JosFFOCh/SgCKCepm
@@ -139,7 +140,7 @@
 	      (setq pv (cdr pv))))
 	  (reverse fans))
       ((error)
-       (message "s-p-v:\n%s\n%s\n%s\n%s\n" err pv pv0 (reverse fans))
+       (message "s-p-v:%s %s" err pv0)
        (append (reverse fans)
 	       (seq-subseq pv0 (- (length fans) 1)))))))
 
