@@ -8,6 +8,7 @@
 
 (defun stockfish-filter (process string)
   (when (buffer-live-p (process-buffer process))
+    ;; mutex would help?
     (with-current-buffer (process-buffer process)
       ;; append output to buffer, saving point
       (save-excursion
@@ -51,8 +52,11 @@
   (interactive "sFEN: ")
   ;; race condition because filter may still be processing output?
   (stockfish-command "stop")
-  (stockfish-command (format "position fen %s" fen))
+  (with-current-buffer (get-buffer "*stockfish*")
+    (goto-char (point-max))
+    (newline))
   (setq stockfish-fen fen)
+  (stockfish-command (format "position fen %s" fen))
   (stockfish-draw-new-analysis-buffer))
 
 (defun stockfish-lookup-evaluation (fen)
@@ -109,16 +113,20 @@
       (stockfish-display-position
        (chess-fen-to-pos stockfish-fen)))))
 
+(defun stockfish-number-or-zero (thing)
+  (if (numberp thing) thing 0.0))
+
 (defun stockfish-draw-nodes (eval)
   (with-current-buffer stockfish-analysis-buffer
     (save-excursion
       (goto-char (point-min))
       (forward-line 2)
       (delete-region (line-beginning-position) (line-end-position))
-      (insert (format "(knodes, knps, s): (%.1f, %.1f, %.2f)"
-		      (/ (or (alist-get 'nodes eval) 0.0) 1000.0)
-		      (/ (or (alist-get 'nps eval) 0.0) 1000.0)
-		      (/ (or (alist-get 'time eval) 0.0) 1000.0))))))
+      (insert (format "(nodes, nps, s): (%.3g, %.3g, %.2f)"
+		      (stockfish-number-or-zero (alist-get 'nodes eval))
+		      (stockfish-number-or-zero (alist-get 'nps eval))
+		      (/ (stockfish-number-or-zero (alist-get 'time eval))
+			 1000.0))))))
 
 ;; strange issue with
 ;; https://lichess.org/broadcast/fide-world-cup/round-5-tiebreaks/JosFFOCh/SgCKCepm
@@ -189,7 +197,8 @@
   (stockfish-stop)
   (stockfish-draw-new-analysis-buffer)
   (with-current-buffer (get-buffer "*stockfish*")
-    (goto-char (point-max)))
+    (goto-char (point-max))
+    (newline))
   (stockfish-command (format "go movetime %s" (* 1000 seconds)))
   (display-buffer stockfish-analysis-buffer)
   'stockfish)
@@ -199,8 +208,9 @@
   (stockfish-initialize)
   (stockfish-stop)
   (stockfish-draw-new-analysis-buffer)
-  (with-current-buffer (get-buffer "*stockfish*")
-    (goto-char (point-max)))
+  (with-current-buffer (get-buffer "*stockfish*") ;; why again?
+    (goto-char (point-max))
+    (newline))
   (stockfish-command "go")
   (display-buffer stockfish-analysis-buffer)
   'stockfish)
