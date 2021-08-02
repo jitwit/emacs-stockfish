@@ -1,7 +1,7 @@
 (require 'chess)
 (require 'svg)
 
-(defvar svg nil)
+(defvar stockfish-svg nil)
 (defvar board-pixels 512)
 (defvar stockfish-piece-image-directory
   "images/pieces/fresca/")
@@ -43,15 +43,15 @@
 		 :y (* j (/ board-pixels 8))))))
 
 (defun stockfish-display-position (position)
-  (setq svg (svg-create board-pixels board-pixels))
-  (embed-background svg)
+  (setq stockfish-svg (svg-create board-pixels board-pixels))
+  (embed-background stockfish-svg)
   (dotimes (i 8)
     (dotimes (j 8)
-      (embed-piece svg position (+ j (* 8 i)))))
+      (embed-piece stockfish-svg position (+ j (* 8 i)))))
   (save-excursion
     (goto-char (point-max))
     (insert-image
-     (svg-image svg))))
+     (svg-image stockfish-svg))))
 
 ;; (setq board-pixels 512)
 ;; (stockfish-display-position

@@ -5,10 +5,10 @@
 (defvar stockfish-analysis-buffer (get-buffer-create "*stockfish-analysis*"))
 (defvar stockfish-fen "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 (defvar stockfish-multipv 5)
+(defvar stockfish-paused t)
 
 (defun stockfish-filter (process string)
   (when (buffer-live-p (process-buffer process))
-    ;; mutex would help?
     (with-current-buffer (process-buffer process)
       ;; append output to buffer, saving point
       (save-excursion
@@ -52,10 +52,12 @@
   (interactive "sFEN: ")
   ;; race condition because filter may still be processing output?
   (stockfish-command "stop")
+  (sleep-for 0.03) ;; gross hack to wait long enough for last output
+		   ;; after command stop...
+  (setq stockfish-fen fen)
   (with-current-buffer (get-buffer "*stockfish*")
     (goto-char (point-max))
     (newline))
-  (setq stockfish-fen fen)
   (stockfish-command (format "position fen %s" fen))
   (stockfish-draw-new-analysis-buffer))
 
@@ -128,12 +130,6 @@
 		      (/ (stockfish-number-or-zero (alist-get 'time eval))
 			 1000.0))))))
 
-;; strange issue with
-;; https://lichess.org/broadcast/fide-world-cup/round-5-tiebreaks/JosFFOCh/SgCKCepm
-;; after move 42... Qd5 getting erroneous moves in some positions
-;; including promotions...  ok! so error is actually with emacs-chess,
-;; it doesn't seem to handle stockfish notation eg: h8h8q
-;; https://github.com/jwiegley/emacs-chess/pull/17
 (defun stockfish-pv-fans (position pv0)
   ;; sometimes lines incomplete...
   (let ((p position)
@@ -196,9 +192,6 @@
   (stockfish-initialize)
   (stockfish-stop)
   (stockfish-draw-new-analysis-buffer)
-  (with-current-buffer (get-buffer "*stockfish*")
-    (goto-char (point-max))
-    (newline))
   (stockfish-command (format "go movetime %s" (* 1000 seconds)))
   (display-buffer stockfish-analysis-buffer)
   'stockfish)
